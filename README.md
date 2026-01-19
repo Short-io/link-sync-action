@@ -22,7 +22,7 @@ A GitHub Action that syncs short links from a `shortio.yaml` file in your reposi
 ```yaml
 # shortio.yaml
 links:
-  - slug: "docs"
+  docs:
     url: "https://documentation.example.com/v2"
     domain: "short.example.com"
     title: "Documentation"
@@ -30,12 +30,12 @@ links:
       - docs
       - public
 
-  - slug: "api"
+  api:
     url: "https://api.example.com"
     domain: "short.example.com"
     title: "API Reference"
 
-  - slug: "blog"
+  blog:
     url: "https://blog.example.com"
     domain: "links.company.io"
     title: "Company Blog"
@@ -84,11 +84,11 @@ jobs:
 
 ### YAML Schema
 
-Each link in `shortio.yaml` supports the following fields:
+The `links` field is a map where each key is the slug (short path) and the value contains:
 
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
-| `slug` | string | Yes | The short path (e.g., "docs" → short.example.com/docs) |
+| *(key)* | string | Yes | The slug/short path (e.g., `docs` → short.example.com/docs) |
 | `url` | string | Yes | Destination URL |
 | `domain` | string | Yes | Short.io domain to use |
 | `title` | string | No | Link title for organization |
