@@ -20,83 +20,7 @@ describe('parseConfig', () => {
     fs.rmSync(TEST_DIR, { recursive: true, force: true });
   });
 
-  it('parses valid config with map structure', () => {
-    writeTestConfig(`
-links:
-  my-link:
-    url: https://example.com
-    domain: short.io
-  another-link:
-    url: https://test.com
-    domain: short.io
-    title: Test Link
-    tags:
-      - tag1
-      - tag2
-`);
-    const config = parseConfig(TEST_FILE);
-    expect(Object.keys(config.links)).toHaveLength(2);
-    expect(config.links['my-link']).toEqual({
-      url: 'https://example.com',
-      domain: 'short.io',
-    });
-    expect(config.links['another-link']).toEqual({
-      url: 'https://test.com',
-      domain: 'short.io',
-      title: 'Test Link',
-      tags: ['tag1', 'tag2'],
-    });
-  });
-
-  it('throws ConfigError for missing file', () => {
-    expect(() => parseConfig('/nonexistent/path.yaml')).toThrow(ConfigError);
-    expect(() => parseConfig('/nonexistent/path.yaml')).toThrow('Config file not found');
-  });
-
-  it('throws ConfigError for non-object config', () => {
-    writeTestConfig('just a string');
-    expect(() => parseConfig(TEST_FILE)).toThrow(ConfigError);
-    expect(() => parseConfig(TEST_FILE)).toThrow('Config must be an object');
-  });
-
-  it('throws ConfigError when links is an array (old format)', () => {
-    writeTestConfig(`
-links:
-  - slug: my-link
-    url: https://example.com
-    domain: short.io
-`);
-    expect(() => parseConfig(TEST_FILE)).toThrow(ConfigError);
-    expect(() => parseConfig(TEST_FILE)).toThrow('Config must have a "links" map');
-  });
-
-  it('throws ConfigError for missing links', () => {
-    writeTestConfig('other_key: value');
-    expect(() => parseConfig(TEST_FILE)).toThrow(ConfigError);
-    expect(() => parseConfig(TEST_FILE)).toThrow('Config must have a "links" map');
-  });
-
-  it('throws ConfigError for missing url', () => {
-    writeTestConfig(`
-links:
-  my-link:
-    domain: short.io
-`);
-    expect(() => parseConfig(TEST_FILE)).toThrow(ConfigError);
-    expect(() => parseConfig(TEST_FILE)).toThrow('Link "my-link" must have a non-empty "url" string');
-  });
-
-  it('throws ConfigError for missing domain when no top-level domain', () => {
-    writeTestConfig(`
-links:
-  my-link:
-    url: https://example.com
-`);
-    expect(() => parseConfig(TEST_FILE)).toThrow(ConfigError);
-    expect(() => parseConfig(TEST_FILE)).toThrow('Link "my-link" must have a "domain" (or set top-level "domain")');
-  });
-
-  it('parses config with top-level domain', () => {
+  it('parses valid single document config', () => {
     writeTestConfig(`
 domain: short.io
 links:
@@ -105,31 +29,94 @@ links:
   another-link:
     url: https://test.com
     title: Test Link
+    tags:
+      - tag1
+      - tag2
 `);
     const config = parseConfig(TEST_FILE);
-    expect(config.domain).toBe('short.io');
-    expect(Object.keys(config.links)).toHaveLength(2);
-    expect(config.links['my-link'].domain).toBeUndefined();
-    expect(config.links['another-link'].domain).toBeUndefined();
+    expect(config.documents).toHaveLength(1);
+    expect(config.documents[0].domain).toBe('short.io');
+    expect(Object.keys(config.documents[0].links)).toHaveLength(2);
+    expect(config.documents[0].links['my-link']).toEqual({
+      url: 'https://example.com',
+      title: undefined,
+      tags: undefined,
+    });
+    expect(config.documents[0].links['another-link']).toEqual({
+      url: 'https://test.com',
+      title: 'Test Link',
+      tags: ['tag1', 'tag2'],
+    });
   });
 
-  it('allows per-link domain to override top-level domain', () => {
+  it('parses multiple YAML documents (stream)', () => {
     writeTestConfig(`
-domain: default.io
+domain: first.io
+links:
+  link1:
+    url: https://first.com
+---
+domain: second.io
+links:
+  link2:
+    url: https://second.com
+`);
+    const config = parseConfig(TEST_FILE);
+    expect(config.documents).toHaveLength(2);
+    expect(config.documents[0].domain).toBe('first.io');
+    expect(config.documents[1].domain).toBe('second.io');
+    expect(config.documents[0].links['link1'].url).toBe('https://first.com');
+    expect(config.documents[1].links['link2'].url).toBe('https://second.com');
+  });
+
+  it('throws ConfigError for missing file', () => {
+    expect(() => parseConfig('/nonexistent/path.yaml')).toThrow(ConfigError);
+    expect(() => parseConfig('/nonexistent/path.yaml')).toThrow('Config file not found');
+  });
+
+  it('throws ConfigError for empty file', () => {
+    writeTestConfig('');
+    expect(() => parseConfig(TEST_FILE)).toThrow(ConfigError);
+    expect(() => parseConfig(TEST_FILE)).toThrow('Config file is empty');
+  });
+
+  it('throws ConfigError for non-object document', () => {
+    writeTestConfig('just a string');
+    expect(() => parseConfig(TEST_FILE)).toThrow(ConfigError);
+    expect(() => parseConfig(TEST_FILE)).toThrow('Document 1 must be an object');
+  });
+
+  it('throws ConfigError when links is an array (old format)', () => {
+    writeTestConfig(`
+domain: short.io
+links:
+  - slug: my-link
+    url: https://example.com
+`);
+    expect(() => parseConfig(TEST_FILE)).toThrow(ConfigError);
+    expect(() => parseConfig(TEST_FILE)).toThrow('Document 1 must have a "links" map');
+  });
+
+  it('throws ConfigError for missing links', () => {
+    writeTestConfig(`
+domain: short.io
+other_key: value
+`);
+    expect(() => parseConfig(TEST_FILE)).toThrow(ConfigError);
+    expect(() => parseConfig(TEST_FILE)).toThrow('Document 1 must have a "links" map');
+  });
+
+  it('throws ConfigError for missing domain', () => {
+    writeTestConfig(`
 links:
   my-link:
     url: https://example.com
-  override-link:
-    url: https://test.com
-    domain: custom.io
 `);
-    const config = parseConfig(TEST_FILE);
-    expect(config.domain).toBe('default.io');
-    expect(config.links['my-link'].domain).toBeUndefined();
-    expect(config.links['override-link'].domain).toBe('custom.io');
+    expect(() => parseConfig(TEST_FILE)).toThrow(ConfigError);
+    expect(() => parseConfig(TEST_FILE)).toThrow('Document 1 must have a non-empty "domain" string');
   });
 
-  it('throws ConfigError for empty top-level domain', () => {
+  it('throws ConfigError for empty domain', () => {
     writeTestConfig(`
 domain: ""
 links:
@@ -137,129 +124,150 @@ links:
     url: https://example.com
 `);
     expect(() => parseConfig(TEST_FILE)).toThrow(ConfigError);
-    expect(() => parseConfig(TEST_FILE)).toThrow('Top-level "domain" must be a non-empty string');
+    expect(() => parseConfig(TEST_FILE)).toThrow('Document 1 must have a non-empty "domain" string');
   });
 
-  it('throws ConfigError for non-string top-level domain', () => {
+  it('throws ConfigError for missing url', () => {
     writeTestConfig(`
-domain: 123
+domain: short.io
 links:
   my-link:
-    url: https://example.com
+    title: Missing URL
 `);
     expect(() => parseConfig(TEST_FILE)).toThrow(ConfigError);
-    expect(() => parseConfig(TEST_FILE)).toThrow('Top-level "domain" must be a non-empty string');
+    expect(() => parseConfig(TEST_FILE)).toThrow('Document 1: link "my-link" must have a non-empty "url" string');
   });
 
   it('throws ConfigError for invalid URL', () => {
     writeTestConfig(`
+domain: short.io
 links:
   my-link:
     url: not-a-valid-url
-    domain: short.io
 `);
     expect(() => parseConfig(TEST_FILE)).toThrow(ConfigError);
-    expect(() => parseConfig(TEST_FILE)).toThrow('Link "my-link" has invalid URL');
+    expect(() => parseConfig(TEST_FILE)).toThrow('Document 1: link "my-link" has invalid URL');
   });
 
   it('throws ConfigError for non-string title', () => {
     writeTestConfig(`
+domain: short.io
 links:
   my-link:
     url: https://example.com
-    domain: short.io
     title: 123
 `);
     expect(() => parseConfig(TEST_FILE)).toThrow(ConfigError);
-    expect(() => parseConfig(TEST_FILE)).toThrow('Link "my-link" "title" must be a string');
+    expect(() => parseConfig(TEST_FILE)).toThrow('Document 1: link "my-link" "title" must be a string');
   });
 
   it('throws ConfigError for non-array tags', () => {
     writeTestConfig(`
+domain: short.io
 links:
   my-link:
     url: https://example.com
-    domain: short.io
     tags: not-an-array
 `);
     expect(() => parseConfig(TEST_FILE)).toThrow(ConfigError);
-    expect(() => parseConfig(TEST_FILE)).toThrow('Link "my-link" "tags" must be an array');
+    expect(() => parseConfig(TEST_FILE)).toThrow('Document 1: link "my-link" "tags" must be an array');
   });
 
   it('throws ConfigError for non-string tag values', () => {
     writeTestConfig(`
+domain: short.io
 links:
   my-link:
     url: https://example.com
-    domain: short.io
     tags:
       - valid
       - 123
 `);
     expect(() => parseConfig(TEST_FILE)).toThrow(ConfigError);
-    expect(() => parseConfig(TEST_FILE)).toThrow('Link "my-link" tags must all be strings');
+    expect(() => parseConfig(TEST_FILE)).toThrow('Document 1: link "my-link" tags must all be strings');
   });
 
-  it('throws error for duplicate YAML keys (enforced by YAML parser)', () => {
+  it('throws ConfigError for duplicate slug within same domain', () => {
     writeTestConfig(`
+domain: short.io
 links:
   my-link:
     url: https://example.com
-    domain: short.io
+---
+domain: short.io
+links:
   my-link:
-    url: https://test.com
-    domain: short.io
+    url: https://other.com
 `);
-    // YAML parser throws error for duplicate map keys
-    expect(() => parseConfig(TEST_FILE)).toThrow('Map keys must be unique');
+    expect(() => parseConfig(TEST_FILE)).toThrow(ConfigError);
+    expect(() => parseConfig(TEST_FILE)).toThrow('Duplicate link: short.io/my-link');
+  });
+
+  it('allows same slug on different domains', () => {
+    writeTestConfig(`
+domain: first.io
+links:
+  my-link:
+    url: https://first.com
+---
+domain: second.io
+links:
+  my-link:
+    url: https://second.com
+`);
+    const config = parseConfig(TEST_FILE);
+    expect(config.documents).toHaveLength(2);
+  });
+
+  it('reports errors in correct document number', () => {
+    writeTestConfig(`
+domain: first.io
+links:
+  link1:
+    url: https://valid.com
+---
+domain: second.io
+links:
+  link2:
+    url: invalid-url
+`);
+    expect(() => parseConfig(TEST_FILE)).toThrow('Document 2: link "link2" has invalid URL');
   });
 });
 
 describe('getUniqueDomains', () => {
-  it('returns unique domains', () => {
+  it('returns unique domains from single document', () => {
     const config = {
-      links: {
-        'link1': { url: 'https://example.com', domain: 'domain1.com' },
-        'link2': { url: 'https://test.com', domain: 'domain2.com' },
-        'link3': { url: 'https://another.com', domain: 'domain1.com' },
-      },
-    };
-    const domains = getUniqueDomains(config);
-    expect(domains).toHaveLength(2);
-    expect(domains).toContain('domain1.com');
-    expect(domains).toContain('domain2.com');
-  });
-
-  it('returns empty array for empty links', () => {
-    const config = { links: {} };
-    const domains = getUniqueDomains(config);
-    expect(domains).toEqual([]);
-  });
-
-  it('uses top-level domain when link domain is not specified', () => {
-    const config = {
-      domain: 'default.io',
-      links: {
-        'link1': { url: 'https://example.com' },
-        'link2': { url: 'https://test.com', domain: 'custom.io' },
-      },
-    };
-    const domains = getUniqueDomains(config);
-    expect(domains).toHaveLength(2);
-    expect(domains).toContain('default.io');
-    expect(domains).toContain('custom.io');
-  });
-
-  it('returns only top-level domain when all links use it', () => {
-    const config = {
-      domain: 'default.io',
-      links: {
-        'link1': { url: 'https://example.com' },
-        'link2': { url: 'https://test.com' },
-      },
+      documents: [{
+        domain: 'short.io',
+        links: {
+          'link1': { url: 'https://example.com' },
+          'link2': { url: 'https://test.com' },
+        },
+      }],
     };
     const domains = getUniqueDomains(config);
     expect(domains).toHaveLength(1);
-    expect(domains).toContain('default.io');
+    expect(domains).toContain('short.io');
+  });
+
+  it('returns unique domains from multiple documents', () => {
+    const config: Parameters<typeof getUniqueDomains>[0] = {
+      documents: [
+        { domain: 'first.io', links: { 'a': { url: 'https://a.com' } } },
+        { domain: 'second.io', links: { 'b': { url: 'https://b.com' } } },
+        { domain: 'first.io', links: { 'c': { url: 'https://c.com' } } },
+      ],
+    };
+    const domains = getUniqueDomains(config);
+    expect(domains).toHaveLength(2);
+    expect(domains).toContain('first.io');
+    expect(domains).toContain('second.io');
+  });
+
+  it('returns empty array for empty documents', () => {
+    const config = { documents: [] };
+    const domains = getUniqueDomains(config);
+    expect(domains).toEqual([]);
   });
 });

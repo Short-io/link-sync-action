@@ -17,13 +17,17 @@ function createMockClient(existingLinks: ShortioLink[] = []): ShortioClient {
   } as unknown as ShortioClient;
 }
 
+function makeConfig(domain: string, links: Record<string, { url: string; title?: string; tags?: string[] }>): YamlConfig {
+  return {
+    documents: [{ domain, links }],
+  };
+}
+
 describe('computeDiff', () => {
   it('identifies links to create', async () => {
-    const config: YamlConfig = {
-      links: {
-        'new-link': { url: 'https://example.com', domain: 'short.io' },
-      },
-    };
+    const config = makeConfig('short.io', {
+      'new-link': { url: 'https://example.com' },
+    });
     const client = createMockClient([]);
     const diff = await computeDiff(config, client);
 
@@ -34,12 +38,9 @@ describe('computeDiff', () => {
   });
 
   it('identifies links to delete', async () => {
-    // Config must have at least one link from the domain to trigger the fetch
-    const config: YamlConfig = {
-      links: {
-        'keep-link': { url: 'https://keep.com', domain: 'short.io' },
-      },
-    };
+    const config = makeConfig('short.io', {
+      'keep-link': { url: 'https://keep.com' },
+    });
     const existingLinks: ShortioLink[] = [
       { id: '1', originalURL: 'https://keep.com', path: 'keep-link', domain: 'short.io', domainId: 1 },
       { id: '2', originalURL: 'https://old.com', path: 'old-link', domain: 'short.io', domainId: 1 },
@@ -54,11 +55,9 @@ describe('computeDiff', () => {
   });
 
   it('identifies links to update when URL changes', async () => {
-    const config: YamlConfig = {
-      links: {
-        'my-link': { url: 'https://new-url.com', domain: 'short.io' },
-      },
-    };
+    const config = makeConfig('short.io', {
+      'my-link': { url: 'https://new-url.com' },
+    });
     const existingLinks: ShortioLink[] = [
       { id: '1', originalURL: 'https://old-url.com', path: 'my-link', domain: 'short.io', domainId: 1 },
     ];
@@ -72,11 +71,9 @@ describe('computeDiff', () => {
   });
 
   it('identifies links to update when title changes', async () => {
-    const config: YamlConfig = {
-      links: {
-        'my-link': { url: 'https://example.com', domain: 'short.io', title: 'New Title' },
-      },
-    };
+    const config = makeConfig('short.io', {
+      'my-link': { url: 'https://example.com', title: 'New Title' },
+    });
     const existingLinks: ShortioLink[] = [
       { id: '1', originalURL: 'https://example.com', path: 'my-link', domain: 'short.io', domainId: 1, title: 'Old Title' },
     ];
@@ -88,11 +85,9 @@ describe('computeDiff', () => {
   });
 
   it('identifies links to update when title is removed', async () => {
-    const config: YamlConfig = {
-      links: {
-        'my-link': { url: 'https://example.com', domain: 'short.io' },
-      },
-    };
+    const config = makeConfig('short.io', {
+      'my-link': { url: 'https://example.com' },
+    });
     const existingLinks: ShortioLink[] = [
       { id: '1', originalURL: 'https://example.com', path: 'my-link', domain: 'short.io', domainId: 1, title: 'Old Title' },
     ];
@@ -104,11 +99,9 @@ describe('computeDiff', () => {
   });
 
   it('identifies links to update when tags change', async () => {
-    const config: YamlConfig = {
-      links: {
-        'my-link': { url: 'https://example.com', domain: 'short.io', tags: ['new-tag'] },
-      },
-    };
+    const config = makeConfig('short.io', {
+      'my-link': { url: 'https://example.com', tags: ['new-tag'] },
+    });
     const existingLinks: ShortioLink[] = [
       { id: '1', originalURL: 'https://example.com', path: 'my-link', domain: 'short.io', domainId: 1, tags: ['old-tag'] },
     ];
@@ -120,11 +113,9 @@ describe('computeDiff', () => {
   });
 
   it('identifies links to update when tags are removed', async () => {
-    const config: YamlConfig = {
-      links: {
-        'my-link': { url: 'https://example.com', domain: 'short.io' },
-      },
-    };
+    const config = makeConfig('short.io', {
+      'my-link': { url: 'https://example.com' },
+    });
     const existingLinks: ShortioLink[] = [
       { id: '1', originalURL: 'https://example.com', path: 'my-link', domain: 'short.io', domainId: 1, tags: ['old-tag'] },
     ];
@@ -136,11 +127,9 @@ describe('computeDiff', () => {
   });
 
   it('does not flag update when link is unchanged', async () => {
-    const config: YamlConfig = {
-      links: {
-        'my-link': { url: 'https://example.com', domain: 'short.io', title: 'Same Title', tags: ['tag1'] },
-      },
-    };
+    const config = makeConfig('short.io', {
+      'my-link': { url: 'https://example.com', title: 'Same Title', tags: ['tag1'] },
+    });
     const existingLinks: ShortioLink[] = [
       { id: '1', originalURL: 'https://example.com', path: 'my-link', domain: 'short.io', domainId: 1, title: 'Same Title', tags: ['tag1'] },
     ];
@@ -153,11 +142,9 @@ describe('computeDiff', () => {
   });
 
   it('treats undefined and empty string title as equivalent', async () => {
-    const config: YamlConfig = {
-      links: {
-        'my-link': { url: 'https://example.com', domain: 'short.io' },
-      },
-    };
+    const config = makeConfig('short.io', {
+      'my-link': { url: 'https://example.com' },
+    });
     const existingLinks: ShortioLink[] = [
       { id: '1', originalURL: 'https://example.com', path: 'my-link', domain: 'short.io', domainId: 1, title: '' },
     ];
@@ -168,19 +155,31 @@ describe('computeDiff', () => {
   });
 
   it('handles tag order differences correctly', async () => {
-    const config: YamlConfig = {
-      links: {
-        'my-link': { url: 'https://example.com', domain: 'short.io', tags: ['b', 'a'] },
-      },
-    };
+    const config = makeConfig('short.io', {
+      'my-link': { url: 'https://example.com', tags: ['b', 'a'] },
+    });
     const existingLinks: ShortioLink[] = [
       { id: '1', originalURL: 'https://example.com', path: 'my-link', domain: 'short.io', domainId: 1, tags: ['a', 'b'] },
     ];
     const client = createMockClient(existingLinks);
     const diff = await computeDiff(config, client);
 
-    // Tags should be considered equal regardless of order
     expect(diff.toUpdate).toHaveLength(0);
+  });
+
+  it('handles multiple documents', async () => {
+    const config: YamlConfig = {
+      documents: [
+        { domain: 'first.io', links: { 'link1': { url: 'https://first.com' } } },
+        { domain: 'second.io', links: { 'link2': { url: 'https://second.com' } } },
+      ],
+    };
+    const client = createMockClient([]);
+    const diff = await computeDiff(config, client);
+
+    expect(diff.toCreate).toHaveLength(2);
+    expect(diff.toCreate.map(l => l.domain)).toContain('first.io');
+    expect(diff.toCreate.map(l => l.domain)).toContain('second.io');
   });
 });
 
@@ -222,8 +221,8 @@ describe('executeSync', () => {
 
     expect(client.updateLink).toHaveBeenCalledWith('1', {
       originalURL: 'https://example.com',
-      title: '',  // Explicit empty string instead of undefined
-      tags: [],   // Explicit empty array instead of undefined
+      title: '',
+      tags: [],
     });
     expect(result.updated).toBe(1);
   });

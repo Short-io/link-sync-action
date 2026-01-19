@@ -21,7 +21,7 @@ A GitHub Action that syncs short links from a `shortio.yaml` file in your reposi
 
 ```yaml
 # shortio.yaml
-domain: "short.example.com"  # Default domain for all links
+domain: "short.example.com"
 
 links:
   docs:
@@ -34,10 +34,27 @@ links:
   api:
     url: "https://api.example.com"
     title: "API Reference"
+```
 
+For multiple domains, use YAML document streams (separated by `---`):
+
+```yaml
+# shortio.yaml
+domain: "short.example.com"
+
+links:
+  docs:
+    url: "https://documentation.example.com/v2"
+  api:
+    url: "https://api.example.com"
+
+---
+
+domain: "links.company.io"
+
+links:
   blog:
     url: "https://blog.example.com"
-    domain: "links.company.io"  # Override default domain
     title: "Company Blog"
 ```
 
@@ -84,11 +101,13 @@ jobs:
 
 ### YAML Schema
 
-**Top-level fields:**
+The config file supports YAML streams (multiple documents separated by `---`). Each document represents a domain and its links.
+
+**Document fields:**
 
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
-| `domain` | string | No | Default domain for all links |
+| `domain` | string | Yes | Short.io domain for all links in this document |
 | `links` | map | Yes | Map of slug → link configuration |
 
 **Link fields** (within `links` map):
@@ -97,11 +116,8 @@ jobs:
 |-------|------|----------|-------------|
 | *(key)* | string | Yes | The slug/short path (e.g., `docs` → short.example.com/docs) |
 | `url` | string | Yes | Destination URL |
-| `domain` | string | No* | Short.io domain (required if no top-level `domain`) |
 | `title` | string | No | Link title for organization |
 | `tags` | string[] | No | Tags for categorization |
-
-*Each link must have a domain, either from the top-level `domain` or its own `domain` field.
 
 ## Examples
 

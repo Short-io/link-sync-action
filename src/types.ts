@@ -1,6 +1,5 @@
 export interface YamlLinkValue {
   url: string;
-  domain?: string;
   title?: string;
   tags?: string[];
 }
@@ -13,9 +12,13 @@ export interface YamlLink {
   tags?: string[];
 }
 
-export interface YamlConfig {
-  domain?: string;
+export interface YamlDocument {
+  domain: string;
   links: Record<string, YamlLinkValue>;
+}
+
+export interface YamlConfig {
+  documents: YamlDocument[];
 }
 
 export interface ShortioLink {
@@ -68,11 +71,17 @@ export function getLinkKey(domain: string, slug: string): LinkKey {
 }
 
 export function getLinksArray(config: YamlConfig): YamlLink[] {
-  return Object.entries(config.links).map(([slug, value]) => ({
-    slug,
-    url: value.url,
-    domain: value.domain ?? config.domain!,
-    title: value.title,
-    tags: value.tags,
-  }));
+  const links: YamlLink[] = [];
+  for (const doc of config.documents) {
+    for (const [slug, value] of Object.entries(doc.links)) {
+      links.push({
+        slug,
+        url: value.url,
+        domain: doc.domain,
+        title: value.title,
+        tags: value.tags,
+      });
+    }
+  }
+  return links;
 }

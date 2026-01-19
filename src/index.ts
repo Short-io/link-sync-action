@@ -3,6 +3,7 @@ import * as path from 'path';
 import { parseConfig, ConfigError } from './config.js';
 import { ShortioClient, ShortioApiError } from './shortio-client.js';
 import { computeDiff, executeSync, formatSummary } from './sync.js';
+import { getLinksArray } from './types.js';
 
 async function run(): Promise<void> {
   try {
@@ -18,7 +19,8 @@ async function run(): Promise<void> {
     }
 
     const config = parseConfig(resolvedPath);
-    core.info(`Found ${Object.keys(config.links).length} links in config`);
+    const links = getLinksArray(config);
+    core.info(`Found ${links.length} links across ${config.documents.length} document(s)`);
 
     const client = new ShortioClient(apiKey);
 
